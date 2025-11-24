@@ -214,7 +214,6 @@ const finishGameForPlayer = async (req, res) => {
              wins = wins + $1,
              losses = losses + $2,
              rating = rating + $3,
-             updated_at = CURRENT_TIMESTAMP
          WHERE steam_id = $4`,
         [win ? 1 : 0, win ? 0 : 1, ratingChange, SteamID]
       );
@@ -285,7 +284,6 @@ const finishGameSimple = async (req, res) => {
            wins = wins + $1,
            losses = losses + $2, 
            rating = rating + $3,
-           updated_at = CURRENT_TIMESTAMP
        WHERE steam_id = $4
        RETURNING *`,
       [win ? 1 : 0, win ? 0 : 1, ratingChange, SteamID]

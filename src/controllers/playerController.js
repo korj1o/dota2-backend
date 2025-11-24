@@ -213,7 +213,7 @@ const finishGameForPlayer = async (req, res) => {
          SET total_matches = total_matches + 1,
              wins = wins + $1,
              losses = losses + $2,
-             rating = rating + $3,
+             rating = rating + $3
          WHERE steam_id = $4`,
         [win ? 1 : 0, win ? 0 : 1, ratingChange, SteamID]
       );
@@ -283,7 +283,7 @@ const finishGameSimple = async (req, res) => {
        SET total_matches = total_matches + 1,
            wins = wins + $1,
            losses = losses + $2, 
-           rating = rating + $3,
+           rating = rating + $3
        WHERE steam_id = $4
        RETURNING *`,
       [win ? 1 : 0, win ? 0 : 1, ratingChange, SteamID]

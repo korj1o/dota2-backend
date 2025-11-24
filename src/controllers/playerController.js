@@ -264,8 +264,8 @@ const finishGameSimple = async (req, res) => {
   try {
     console.log('📨 Получен упрощенный запрос на матч:', req.body);
     
-    const { player_info } = req.body;
-    const { SteamID, win } = player_info || {};
+    const { player_info, match_id } = req.body; // Добавить match_id
+    const { SteamID, win, duration, kills_creeps, deaths, gold, level, heroname } = player_info || {};
 
     if (!SteamID) {
       return res.status(400).json({
@@ -274,44 +274,77 @@ const finishGameSimple = async (req, res) => {
       });
     }
 
-    // Простой расчет рейтинга
     const ratingChange = win ? 30 : -30;
+    const client = await pool.connect();
+    
+    try {
+      await client.query('BEGIN');
 
-    // Обновляем рейтинг игрока
-    const result = await pool.query(
-      `UPDATE players 
-       SET total_matches = total_matches + 1,
-           wins = wins + $1,
-           losses = losses + $2, 
-           rating = rating + $3
-       WHERE steam_id = $4
-       RETURNING *`,
-      [win ? 1 : 0, win ? 0 : 1, ratingChange, SteamID]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        error: 'Игрок не найден'
-      });
-    }
-
-    const updatedPlayer = result.rows[0];
-
-    res.json({
-      success: true,
-      message: win ? 'Победа! +30 рейтинга' : 'Поражение! -30 рейтинга',
-      rating_change: ratingChange,
-      new_rating: updatedPlayer.rating,
-      profile: {
-        steamid: updatedPlayer.steam_id,
-        nickname: updatedPlayer.nickname,
-        total_matches: updatedPlayer.total_matches,
-        wins: updatedPlayer.wins,
-        losses: updatedPlayer.losses,
-        rating: updatedPlayer.rating
+      // 1. Создаем запись в matches (если передан match_id)
+      if (match_id) {
+        await client.query(
+          `INSERT INTO matches (match_id, game_mode, difficulty, duration) 
+           VALUES ($1, $2, $3, $4) 
+           ON CONFLICT (match_id) DO NOTHING`,
+          [match_id, 0, 1, duration || 0]
+        );
       }
-    });
+
+      // 2. Создаем запись в player_matches (если передан match_id)
+      if (match_id) {
+        await client.query(
+          `INSERT INTO player_matches 
+           (steam_id, match_id, hero_name, kills_creeps, deaths, gold, level, win, rating_change) 
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+          [SteamID, match_id, heroname || 'unknown', kills_creeps || 0, deaths || 0, 
+           gold || 0, level || 1, win, ratingChange]
+        );
+      }
+
+      // 3. Обновляем статистику игрока
+      const result = await client.query(
+        `UPDATE players 
+         SET total_matches = total_matches + 1,
+             wins = wins + $1,
+             losses = losses + $2, 
+             rating = rating + $3
+         WHERE steam_id = $4
+         RETURNING *`,
+        [win ? 1 : 0, win ? 0 : 1, ratingChange, SteamID]
+      );
+
+      await client.query('COMMIT');
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          error: 'Игрок не найден'
+        });
+      }
+
+      const updatedPlayer = result.rows[0];
+
+      res.json({
+        success: true,
+        message: win ? 'Победа! +30 рейтинга' : 'Поражение! -30 рейтинга',
+        rating_change: ratingChange,
+        new_rating: updatedPlayer.rating,
+        profile: {
+          steamid: updatedPlayer.steam_id,
+          nickname: updatedPlayer.nickname,
+          total_matches: updatedPlayer.total_matches,
+          wins: updatedPlayer.wins,
+          losses: updatedPlayer.losses,
+          rating: updatedPlayer.rating
+        }
+      });
+
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
 
   } catch (error) {
     console.error('❌ Ошибка в finishGameSimple:', error);

@@ -77,3 +77,41 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`🗄️ База: ${process.env.DATABASE_URL ? 'Railway' : 'Локальная'}`);
   console.log('=================================');
 });
+
+// Запускаем сервер
+const server = app.listen(PORT, '0.0.0.0', () => {
+  console.log('=================================');
+  console.log('🚀 Dota 2 Stats Server запущен!');
+  console.log(`📍 Порт: ${PORT}`);
+  console.log(`🌐 Режим: ${process.env.NODE_ENV}`);
+  console.log(`🗄️ База: ${process.env.DATABASE_URL ? 'Railway' : 'Локальная'}`);
+  console.log('=================================');
+});
+
+// Graceful shutdown обработка
+process.on('SIGTERM', () => {
+  console.log('🛑 Получен SIGTERM, завершаем работу...');
+  server.close(() => {
+    console.log('✅ HTTP сервер закрыт');
+    process.exit(0);
+  });
+});
+
+process.on('SIGINT', () => {
+  console.log('🛑 Получен SIGINT, завершаем работу...');
+  server.close(() => {
+    console.log('✅ HTTP сервер закрыт');
+    process.exit(0);
+  });
+});
+
+// Обработка необработанных исключений
+process.on('uncaughtException', (error) => {
+  console.error('❌ Необработанное исключение:', error);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('❌ Необработанный промис:', reason);
+  process.exit(1);
+});

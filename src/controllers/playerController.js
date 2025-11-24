@@ -284,9 +284,9 @@ const finishGameSimple = async (req, res) => {
       if (match_id) {
         await client.query(
           `INSERT INTO matches (match_id, game_mode, difficulty, duration) 
-           VALUES ($1, $2, $3, $4) 
-           ON CONFLICT (match_id) DO NOTHING`,
-          [match_id, 0, 1, duration || 0]
+          VALUES ($1, $2, $3, $4) 
+          ON CONFLICT (match_id) DO NOTHING`,
+          [match_id, 0, 1, Math.round(duration || 0)]  // ← ОКРУГЛИТЕ до целого
         );
       }
 

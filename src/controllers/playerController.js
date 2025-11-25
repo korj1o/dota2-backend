@@ -260,12 +260,13 @@ const finishGameForPlayer = async (req, res) => {
 };
 
 // Упрощенная версия для теста (ИСПРАВЛЕННАЯ)
+// Функция для завершения матча (ИСПРАВЛЕННАЯ ВЕРСИЯ)
 const finishGameSimple = async (req, res) => {
   try {
     console.log('📨 Получен упрощенный запрос на матч:', req.body);
     
     const { match_id, player_info } = req.body;
-    const { SteamID, win, duration, kills_creeps, deaths, gold, level, heroname } = player_info || {};
+    const { SteamID, win, duration, kills_creeps, deaths, gold, level, heroname, rating_change } = player_info || {};
 
     if (!SteamID || !match_id) {
       return res.status(400).json({
@@ -274,9 +275,11 @@ const finishGameSimple = async (req, res) => {
       });
     }
 
+    // ИСПОЛЬЗУЕМ ПЕРЕДАННОЕ ИЗМЕНЕНИЕ РЕЙТИНГА ИЛИ РАССЧИТЫВАЕМ ПО УМОЛЧАНИЮ
+    const ratingChange = rating_change !== undefined ? rating_change : (win ? 30 : -30);
+
     // Преобразуем duration в целое число (округляем)
     const durationInt = Math.round(duration || 0);
-    const ratingChange = win ? 30 : -30;
 
     // Начинаем транзакцию
     const client = await pool.connect();
@@ -321,10 +324,11 @@ const finishGameSimple = async (req, res) => {
       const updatedPlayer = result.rows[0];
 
       console.log('✅ Матч успешно сохранен! Match ID:', match_id);
+      console.log('📊 Изменение рейтинга:', ratingChange);
 
       res.json({
         success: true,
-        message: win ? 'Победа! +30 рейтинга' : 'Поражение! -30 рейтинга',
+        message: win ? `Победа! +${ratingChange} рейтинга` : `Поражение! ${ratingChange} рейтинга`,
         rating_change: ratingChange,
         new_rating: updatedPlayer.rating,
         profile: {

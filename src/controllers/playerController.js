@@ -259,7 +259,6 @@ const finishGameForPlayer = async (req, res) => {
   }
 };
 
-// Упрощенная версия для теста
 // Упрощенная версия для теста (ИСПРАВЛЕННАЯ)
 const finishGameSimple = async (req, res) => {
   try {
@@ -275,21 +274,22 @@ const finishGameSimple = async (req, res) => {
       });
     }
 
-    // Простой расчет рейтинга
+    // Преобразуем duration в целое число (округляем)
+    const durationInt = Math.round(duration || 0);
     const ratingChange = win ? 30 : -30;
 
-    // Начинаем транзакцию для записи во ВСЕ таблицы
+    // Начинаем транзакцию
     const client = await pool.connect();
     
     try {
       await client.query('BEGIN');
 
-      // 1. Создаем запись в matches (если еще нет)
+      // 1. Создаем запись в matches (используем округленное значение)
       await client.query(
         `INSERT INTO matches (match_id, game_mode, difficulty, duration) 
          VALUES ($1, $2, $3, $4) 
          ON CONFLICT (match_id) DO NOTHING`,
-        [match_id, 0, 1, duration || 0]
+        [match_id, 0, 1, durationInt]  // ← Используем durationInt
       );
 
       // 2. Добавляем статистику в player_matches
@@ -300,7 +300,7 @@ const finishGameSimple = async (req, res) => {
         [SteamID, match_id, heroname || 'unknown', kills_creeps || 0, deaths || 0, gold || 0, level || 1, win, ratingChange]
       );
 
-      // 3. Обновляем общую статистику игрока
+      // 3. Обновляем игрока
       const result = await client.query(
         `UPDATE players 
          SET total_matches = total_matches + 1,
@@ -319,6 +319,8 @@ const finishGameSimple = async (req, res) => {
       await client.query('COMMIT');
 
       const updatedPlayer = result.rows[0];
+
+      console.log('✅ Матч успешно сохранен! Match ID:', match_id);
 
       res.json({
         success: true,
